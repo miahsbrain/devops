@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-gke
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hello-gke
+  template:
+    metadata:
+      labels:
+        app: hello-gke
+    spec:
+      serviceAccountName: gke-app-sa
+      containers:
+        - name: app
+          image: us-central1-docker.pkg.dev/secure-devops-setup/prod-repo/hello-gke:1.0
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: secrets-store-inline
+              mountPath: "/secrets"
+              readOnly: true
+      volumes:
+        - name: secrets-store-inline
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "gcp-secrets"
