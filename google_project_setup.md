@@ -123,7 +123,16 @@ gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} \
 kubectl get pods -n kube-system
 ```
 
-9. Install google cloud provider daemonset from official google repo
+9. Install csi deivers and google provider daemonset from official google repo
+
+```bash
+# Apply the Secrets Store CSI Driver
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/v1.4.5/deploy/rbac-secretproviderclass.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/v1.4.5/deploy/csidriver.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/v1.4.5/deploy/secrets-store.csi.x-k8s.io_secretproviderclasses.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/v1.4.5/deploy/secrets-store.csi.x-k8s.io_secretproviderclasspodstatuses.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/v1.4.5/deploy/secrets-store-csi-driver.yaml
+```
 
 ```bash
 # Apply GCP provider, daemonset needed for the containers to mount

@@ -276,5 +276,5 @@ echo "Bootstrap completed successfully."
 
 
 # Delete cluster if needed
-gcloud container cclusterslusters delete prod-cluster --zone us-central1-a ---quiet-quiet
+gcloud container clusters delete prod-cluster --zone us-central1-a --quiet
 gcloud container clusters delete prod-cluster --region us-central1 --quiet
