@@ -123,7 +123,7 @@ gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} \
 kubectl get pods -n kube-system
 ```
 
-9. Install csi deivers and google provider daemonset from official google repo
+9. Install csi drivers and google provider daemonset from official google repo
 
 ```bash
 # Apply the Secrets Store CSI Driver
