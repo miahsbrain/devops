@@ -36,35 +36,35 @@ gcloud config set project "$PROJECT_ID"
 
 ```bash
 gcloud services enable \
-  container.googleapis.com \
-  run.googleapis.com \
-  artifactregistry.googleapis.com \
-  secretmanager.googleapis.com \
-  iamcredentials.googleapis.com \
-  sts.googleapis.com \
-  cloudresourcemanager.googleapis.com
+container.googleapis.com \
+run.googleapis.com \
+artifactregistry.googleapis.com \
+secretmanager.googleapis.com \
+iamcredentials.googleapis.com \
+sts.googleapis.com \
+cloudresourcemanager.googleapis.com
 ```
 
 4. Create service accounts for runtime environments
 
 ```bash
 gcloud iam service-accounts create $GKE_SA \
-  --display-name="GKE Runtime Service Account" \
-  || true
+--display-name="GKE Runtime Service Account" \
+|| true
 
 gcloud iam service-accounts create $RUN_SA \
-  --display-name="Cloud Run Runtime Service Account" \
-  || true
+--display-name="Cloud Run Runtime Service Account" \
+|| true
 ```
 
 5. Grant both runtime service account access to secrets
 
 ```bash
 for SA in $GKE_SA $RUN_SA; do
-  gcloud secrets add-iam-policy-binding prod-db-password \
-    --member="serviceAccount:${SA}@${PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/secretmanager.secretAccessor" \
-    || true
+gcloud secrets add-iam-policy-binding prod-db-password \
+  --member="serviceAccount:${SA}@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor" \
+  || true
 done
 ```
 
@@ -80,8 +80,8 @@ SECRETS=$(gcloud secrets list --project=${PROJECT_ID} --format="value(name)")
 ```bash
 echo "Creating example secret..."
 gcloud secrets create prod-db-password \
-  --replication-policy="automatic" \
-  || echo "Secret already exists"
+--replication-policy="automatic" \
+|| echo "Secret already exists"
 
 # Add the secret
 echo -n "super-secure-runtime-password" | \
@@ -92,32 +92,32 @@ gcloud secrets versions add prod-db-password --data-file=-
 
 ```bash
 gcloud container clusters create ${GKE_CLUSTER_NAME} \
-  --zone=${ZONE} \
-  --num-nodes=1 \
-  --disk-size=50 \
-  --machine-type=e2-standard-4 \
-  --enable-secret-manager \
-  --workload-pool=${PROJECT_ID}.svc.id.goog
+--zone=${ZONE} \
+--num-nodes=1 \
+--disk-size=50 \
+--machine-type=e2-standard-4 \
+--enable-secret-manager \
+--workload-pool=${PROJECT_ID}.svc.id.goog
 
 # If existing cluster
 # Update to include google secret manager
 gcloud container clusters update ${GKE_CLUSTER_NAME} \
-  --enable-secret-manager \
-  --region=${REGION}
+--enable-secret-manager \
+--region=${REGION}
 
 # Upscale cluster if you run out of memory for csis
 gcloud container clusters resize ${GKE_CLUSTER_NAME} \
-  --node-pool default-pool \
-  --num-nodes 2 \
-  --zone us-central1-a
+--node-pool default-pool \
+--num-nodes 2 \
+--zone us-central1-a
 ```
 
 8. Authenticate cluster in shell and check that all services are running
 
 ```bash
 gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} \
-  --zone=${ZONE} \
-  --project=${PROJECT_ID}
+--zone=${ZONE} \
+--project=${PROJECT_ID}
 
 # Verify all kube pods are running
 kubectl get pods -n kube-system
@@ -146,24 +146,24 @@ https://raw.githubusercontent.com/GoogleCloudPlatform/secrets-store-csi-driver-p
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl create serviceaccount ${KSA_NAME} \
-  --namespace=${NAMESPACE}
+--namespace=${NAMESPACE}
 ```
 
 11. Bind kubernetes service account to gke runtime service account (workload identity binding)
 
 ```bash
 gcloud iam service-accounts add-iam-policy-binding \
-  ${GKE_SA}@${PROJECT_ID}.iam.gserviceaccount.com \
-  --role=roles/iam.workloadIdentityUser \
-  --member="serviceAccount:${PROJECT_ID}.svc.id.goog[${NAMESPACE}/${KSA_NAME}]"
+${GKE_SA}@${PROJECT_ID}.iam.gserviceaccount.com \
+--role=roles/iam.workloadIdentityUser \
+--member="serviceAccount:${PROJECT_ID}.svc.id.goog[${NAMESPACE}/${KSA_NAME}]"
 ```
 
 12. Annotate the kubernetes service account
 
 ```bash
 kubectl annotate serviceaccount ${KSA_NAME} \
-  --namespace=${NAMESPACE} \
-  iam.gke.io/gcp-service-account=${GKE_SA}@${PROJECT_ID}.iam.gserviceaccount.com
+--namespace=${NAMESPACE} \
+iam.gke.io/gcp-service-account=${GKE_SA}@${PROJECT_ID}.iam.gserviceaccount.com
 
 # Verify annotation was applied
 kubectl get serviceaccount ${KSA_NAME} -n ${NAMESPACE} -o yaml
@@ -181,12 +181,12 @@ docker push us-central1-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/hello-run:
 
 # On server
 gcloud run deploy hello-run \
-  --image=us-central1-docker.pkg.dev/${PROJECT_ID}/prod-repo/hello-run:latest \
-  --region=us-central1 \
-  --platform=managed \
-  --allow-unauthenticated \
-  --service-account=${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com \
-  --set-secrets=DB_PASSWORD=prod-db-password:latest
+--image=us-central1-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/hello-run:latest \
+--region=us-central1 \
+--platform=managed \
+--allow-unauthenticated \
+--service-account=${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com \
+--set-secrets=DB_PASSWORD=prod-db-password:latest
 ```
 
 ### Kubernetes
@@ -198,14 +198,14 @@ cat <<EOF | kubectl apply -f -
 apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
 metadata:
-  name: app-secrets
-  namespace: ${NAMESPACE}
+name: app-secrets
+namespace: ${NAMESPACE}
 spec:
-  provider: gcp
-  parameters:
-    secrets: |
-      - resourceName: "projects/${PROJECT_ID}/secrets/prod-db-password/versions/latest"
-        path: "db-password"
+provider: gcp
+parameters:
+  secrets: |
+    - resourceName: "projects/${PROJECT_ID}/secrets/prod-db-password/versions/latest"
+      path: "db-password"
 EOF
 ```
 
@@ -216,25 +216,25 @@ cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Pod
 metadata:
-  name: csi-test-pod
-  namespace: ${NAMESPACE}
+name: csi-test-pod
+namespace: ${NAMESPACE}
 spec:
-  serviceAccountName: ${KSA_NAME}
-  containers:
-  - name: app
-    image: busybox:1.36
-    command: ["sleep", "infinity"]
-    volumeMounts:
-    - name: secrets-store
-      mountPath: "/mnt/secrets"
-      readOnly: true
-  volumes:
+serviceAccountName: ${KSA_NAME}
+containers:
+- name: app
+  image: busybox:1.36
+  command: ["sleep", "infinity"]
+  volumeMounts:
   - name: secrets-store
-    csi:
-      driver: secrets-store.csi.k8s.io
-      readOnly: true
-      volumeAttributes:
-        secretProviderClass: "app-secrets"
+    mountPath: "/mnt/secrets"
+    readOnly: true
+volumes:
+- name: secrets-store
+  csi:
+    driver: secrets-store.csi.k8s.io
+    readOnly: true
+    volumeAttributes:
+      secretProviderClass: "app-secrets"
 EOF
 ```
 
@@ -255,13 +255,13 @@ Read and use secrets in app (python)
 import os
 
 def read_secret(secret_name):
-    """Read secret from mounted file"""
-    secret_path = f"/mnt/secrets/{secret_name}"
-    try:
-        with open(secret_path, 'r') as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        raise Exception(f"Secret {secret_name} not found at {secret_path}")
+  """Read secret from mounted file"""
+  secret_path = f"/mnt/secrets/{secret_name}"
+  try:
+      with open(secret_path, 'r') as f:
+          return f.read().strip()
+  except FileNotFoundError:
+      raise Exception(f"Secret {secret_name} not found at {secret_path}")
 
 # Use the secrets
 DB_PASSWORD = read_secret('db-password')
@@ -272,17 +272,17 @@ JWT_SECRET = read_secret('jwt-secret')
 import psycopg2
 
 conn = psycopg2.connect(
-    host="your-db-host",
-    database="mydb",
-    user="dbuser",
-    password=DB_PASSWORD  # Secret from file
+  host="your-db-host",
+  database="mydb",
+  user="dbuser",
+  password=DB_PASSWORD  # Secret from file
 )
 
 # Example: API client
 import requests
 
 headers = {
-    'Authorization': f'Bearer {API_KEY}'
+  'Authorization': f'Bearer {API_KEY}'
 }
 response = requests.get('https://api.example.com/data', headers=headers)
 ```
@@ -341,12 +341,12 @@ Create alert for exec access
 
 ```bash
 cat <<EOF | gcloud logging sinks create exec-alert-sink \
-  pubsub.googleapis.com/projects/${PROJECT_ID}/topics/security-alerts \
-  --log-filter='
-    resource.type="k8s_cluster"
-    protoPayload.methodName="io.k8s.core.v1.pods.exec"
-    resource.labels.cluster_name="${GKE_CLUSTER_NAME}"
-  '
+pubsub.googleapis.com/projects/${PROJECT_ID}/topics/security-alerts \
+--log-filter='
+  resource.type="k8s_cluster"
+  protoPayload.methodName="io.k8s.core.v1.pods.exec"
+  resource.labels.cluster_name="${GKE_CLUSTER_NAME}"
+'
 EOF
 ```
 
@@ -357,32 +357,32 @@ cat <<EOF | kubectl apply -f -
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: restrict-app-egress
-  namespace: ${NAMESPACE}
+name: restrict-app-egress
+namespace: ${NAMESPACE}
 spec:
-  podSelector:
-    matchLabels:
-      app: my-app
-  policyTypes:
-  - Egress
-  egress:
-  # Allow DNS
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          name: kube-system
-    ports:
-    - protocol: UDP
-      port: 53
-  # Allow database only
-  - to:
-    - podSelector:
-        matchLabels:
-          app: postgres
-    ports:
-    - protocol: TCP
-      port: 5432
-  # Block everything else (including internet)
+podSelector:
+  matchLabels:
+    app: my-app
+policyTypes:
+- Egress
+egress:
+# Allow DNS
+- to:
+  - namespaceSelector:
+      matchLabels:
+        name: kube-system
+  ports:
+  - protocol: UDP
+    port: 53
+# Allow database only
+- to:
+  - podSelector:
+      matchLabels:
+        app: postgres
+  ports:
+  - protocol: TCP
+    port: 5432
+# Block everything else (including internet)
 EOF
 ```
 
@@ -455,7 +455,12 @@ includedPermissions:
 # NO secretmanager.versions.* permissions
 EOF
 
-# Update the role
+# Create the role
+gcloud iam roles create devopsEngineer \
+  --project=${PROJECT_ID} \
+  --file=devops-role-no-secrets.yaml
+
+# Update the role later on
 gcloud iam roles update devopsEngineer \
   --project=${PROJECT_ID} \
   --file=devops-role-no-secrets.yaml
