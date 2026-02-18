@@ -571,7 +571,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: devops-developer-binding
-  namespace: development
+  namespace: ${NAMESPACE}
 subjects:
 - kind: User
   name: ${EMPLOYEE_EMAIL}
@@ -591,21 +591,21 @@ gcloud secrets get-iam-policy prod-db-password --project=${PROJECT_ID} | grep ${
 # Should return nothing
 
 # Verify employee has NO secret access in K8s
-kubectl auth can-i get secrets --as=${EMPLOYEE_EMAIL} -n development
+kubectl auth can-i get secrets --as=${EMPLOYEE_EMAIL} -n ${NAMESPACE}
 # Should return: no
 
-kubectl auth can-i list secrets --as=${EMPLOYEE_EMAIL} -n development
+kubectl auth can-i list secrets --as=${EMPLOYEE_EMAIL} -n ${NAMESPACE}
 # Should return: no
 
-kubectl auth can-i get secrets --as=${EMPLOYEE_EMAIL} -n production
+kubectl auth can-i get secrets --as=${EMPLOYEE_EMAIL} -n ${NAMESPACE}
 # Should return: no
 
 # Verify they CAN deploy
-kubectl auth can-i create deployments --as=${EMPLOYEE_EMAIL} -n development
+kubectl auth can-i create deployments --as=${EMPLOYEE_EMAIL} -n ${NAMESPACE}
 # Should return: yes
 
 # Verify they CANNOT exec
-kubectl auth can-i create pods/exec --as=${EMPLOYEE_EMAIL} -n development
+kubectl auth can-i create pods/exec --as=${EMPLOYEE_EMAIL} -n ${NAMESPACE}
 # Should return: no
 ```
 
@@ -622,10 +622,11 @@ gcloud iam service-accounts create cicd-deployer \
 # Grant it minimal permissions
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
   --member="serviceAccount:cicd-deployer@${PROJECT_ID}.iam.gserviceaccount.com" \
-  --role="roles/container.developer"
+  --role="roles/container.developer" \
+  --role="roles/artifactregistry.writer"
 
 # Create Kubernetes service account
-kubectl create serviceaccount cicd-deployer -n development
+kubectl create serviceaccount cicd-deployer -n ${NAMESPACE}
 
 # Bind to the same role
 cat <<EOF | kubectl apply -f -
@@ -633,11 +634,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: cicd-deployer-binding
-  namespace: development
+  namespace: ${NAMESPACE}
 subjects:
 - kind: ServiceAccount
   name: cicd-deployer
-  namespace: development
+  namespace: ${NAMESPACE}
 roleRef:
   kind: Role
   name: devops-developer
@@ -648,8 +649,24 @@ EOF
 gcloud iam service-accounts add-iam-policy-binding \
   cicd-deployer@${PROJECT_ID}.iam.gserviceaccount.com \
   --member="user:${EMPLOYEE_EMAIL}" \
+  --role="roles/iam.serviceAccountTokenCreator" \
+  --project=${PROJECT_ID}
+
+gcloud iam service-accounts add-iam-policy-binding \
+  cicd-deployer@${PROJECT_ID}.iam.gserviceaccount.com \
+  --member="user:${EMPLOYEE_EMAIL}" \
   --role="roles/iam.serviceAccountUser" \
   --project=${PROJECT_ID}
+
+# Verify roles
+gcloud iam service-accounts get-iam-policy \
+  cicd-deployer@secure-devops-setup.iam.gserviceaccount.com
+```
+
+Employee impersonate service account from their authorized shell
+
+```bash
+gcloud auth print-access-token --impersonate-service-account=cicd-deployer@${PROJECT_ID}.iam.gserviceaccount.com
 ```
 
 # Appendix
@@ -659,7 +676,7 @@ gcloud iam service-accounts add-iam-policy-binding \
 gpg --symmetric --cipher-algo AES256 service-account.json
 
 # Explicit passphrase
-gpg --symmetric --cipher-algo AES256 --batch --passphrase "your-passphrase" service-account.json
+gpg --symmetric --cipher-algo AES256 --batch --passphrase "passphrase" service-account.json
 # outputs service-account.json.enc — commit this
 git add service-account.json.enc
 
