@@ -651,3 +651,26 @@ gcloud iam service-accounts add-iam-policy-binding \
   --role="roles/iam.serviceAccountUser" \
   --project=${PROJECT_ID}
 ```
+
+# Appendix
+
+```bash
+# One time — encrypt and commit the file (never commit the raw .json)
+gpg --symmetric --cipher-algo AES256 service-account.json
+
+# Explicit passphrase
+gpg --symmetric --cipher-algo AES256 --batch --passphrase "your-passphrase" service-account.json
+# outputs service-account.json.enc — commit this
+git add service-account.json.enc
+
+# Add the raw key to gitignore
+echo "service-account.json" >> .gitignore
+
+# Decrypt
+gpg --quiet --batch --yes \
+    --passphrase="${PASSPHRASE}" \
+    --output "${KEY_FILE}" \
+    --decrypt "${ENCRYPTED_KEY}"
+
+trap "rm -f ${KEY_FILE}" EXIT
+```
