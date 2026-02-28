@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Point to the base
+resources:
+  - ../../base
+
+# Add a namespace for staging
+namespace: staging
+
+# Add staging-specific labels on top of base labels
+labels:
+  - pairs:
+      environment: staging
+
+# Add annotations to all resources
+commonAnnotations:
+  team: "platform-eng"
+  contact: "devops@example.com"
+
+# Patch the deployment: change replica count + add resources
+patches:
+  # - patch: |-
+  #     - op: replace
+  #       path: /spec/replicas
+  #       value: 1
+  #   target:
+  #     kind: Deployment
+  #     name: web-app
+  - path: resource-patch.yaml
+    target:
+      kind: Deployment
+      name: web-app
+
+# Override ConfigMap values for staging
+configMapGenerator:
+  - name: web-app-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=staging
+      - LOG_LEVEL=debug
+
+  - name: web-app-html
+    behavior: replace
+    literals:
+      - index.html=<!DOCTYPE html><html><head><title>Kustomize Demo - STAGING</title><style>body{font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#fff3cd;}.card{background:white;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);text-align:center;}h1{font-size:2rem;margin-bottom:10px;}.env-badge{display:inline-block;padding:6px 20px;border-radius:20px;font-weight:bold;font-size:1.1rem;margin-top:10px;}</style></head><body><div class="card"><h1>🚀 Kustomize Demo App</h1><p>Environment:<strong>STAGING</strong></p><span class="env-badge" style="background:#ffc107;color:#333;">staging</span><p style="margin-top:20px;color:#888;">1 replica · debug logging · relaxed resources</p></div></body></html>

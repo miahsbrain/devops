@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# All resources that make up our base application
+resources:
+  - deployment.yaml
+  - service.yaml
+  - configmap.yaml
+
+# Labels added to all resources
+labels:
+  - pairs:
+      app: web-app
+      managed-by: kustomize

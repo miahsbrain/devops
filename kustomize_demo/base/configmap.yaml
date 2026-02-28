@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-app-config
+data:
+  ENVIRONMENT: "base"
+  LOG_LEVEL: "info"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+        }
+        location /health {
+            return 200 'OK';
+            add_header Content-Type text/plain;
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-app-html
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head><title>Kustomize Demo</title>
+    <style>
+      body { font-family: Arial, sans-serif; display: flex; justify-content: center;
+             align-items: center; height: 100vh; margin: 0; background: #f0f0f0; }
+      .card { background: white; padding: 40px; border-radius: 12px;
+              box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; }
+      h1 { font-size: 2rem; margin-bottom: 10px; }
+      .env-badge { display: inline-block; padding: 6px 20px; border-radius: 20px;
+                   font-weight: bold; font-size: 1.1rem; margin-top: 10px; }
+    </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>🚀 Kustomize Demo App</h1>
+        <p>Environment: <strong>BASE</strong></p>
+        <span class="env-badge" style="background:#ddd;color:#333;">base</span>
+        <p style="margin-top:20px;color:#888;">This is the base config — overlays override this!</p>
+      </div>
+    </body>
+    </html>
