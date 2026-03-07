@@ -309,3 +309,59 @@ Use this table to keep track of your own cluster details as you fill them in:
 > 1. Run `gcloud container clusters resize` to add at least 1 more node immediately
 > 2. Enable autoscaling so this doesn't happen again as your app grows
 > 3. Consider upgrading to `e2-standard-8` or higher if CPU issues persist
+
+List each pod and its resources
+
+```bash
+kubectl get pods -n dev -o json | jq -r '
+  .items[] |
+  .metadata.name + " | req: " +
+  .spec.containers[0].resources.requests.memory + " | lim: " +
+  .spec.containers[0].resources.limits.memory'
+```
+
+Add limit range to cluster to prevent excessive and corrupt memory values, update to your namespace or use the default namespace
+
+limit-range.yml
+
+```bash
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: dev-limit-range
+  namespace: dev
+spec:
+  limits:
+  - type: Container
+    max:
+      memory: 4Gi
+      cpu: 500m
+    defaultRequest:
+      memory: 256Mi
+      cpu: 50m
+    default:
+      memory: 512Mi
+      cpu: 100m
+```
+
+Register cred in docker
+
+```bash
+# Check if it exists
+kubectl get secret regcred -n dev
+
+# If missing, recreate it
+kubectl create secret docker-registry regcred \
+  --docker-server=us-central1-docker.pkg.dev \
+  --docker-username=_json_key \
+  --docker-password="$(cat /path/to/gcp-key.json)" \
+  --docker-email=your@email.com \
+  -n dev
+```
+
+Safe delete for csi, delete all crashing pods to load secrets again
+
+```bash
+kubectl get pods -n dev --no-headers | grep -E "CrashLoopBackOff|Error" | awk '{print $1}' | \
+  xargs -I {} sh -c 'kubectl delete pod {} -n dev && sleep 10'
+```
