@@ -1,0 +1,85 @@
+# ─────────────────────────────────────────────
+# IngressClass for External GCE Load Balancer
+# ─────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: gce
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "false"
+spec:
+  controller: ingress.gke.io/ingress
+---
+# ─────────────────────────────────────────────
+# IngressClass for Internal GCE Load Balancer
+# ─────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: gce-internal
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "false"
+spec:
+  controller: ingress.gke.io/internal-ingress
+---
+# ─────────────────────────────────────────────
+# External Ingress (Public Internet)
+# ─────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: external-ingress
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    networking.gke.io/load-balancer-type: "External"
+spec:
+  ingressClassName: gce
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: service-a
+                port:
+                  number: 8080
+          - path: /service-b
+            pathType: Prefix
+            backend:
+              service:
+                name: service-b
+                port:
+                  number: 8080
+---
+# ─────────────────────────────────────────────
+# Internal Ingress (Private VPC traffic)
+# Used by Cloud Run through VPC connector
+# ─────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: internal-ingress
+  annotations:
+    kubernetes.io/ingress.class: "gce-internal"
+    kubernetes.io/ingress.regional-static-ip-name: "devops-internal-ip"
+spec:
+  ingressClassName: gce-internal
+  rules:
+    - host: internal.devops-gateway.private
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: service-a
+                port:
+                  number: 8080
+          - path: /service-b
+            pathType: Prefix
+            backend:
+              service:
+                name: service-b
+                port:
+                  number: 8080

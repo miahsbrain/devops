@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-internal-service
+  annotations:
+    networking.gke.io/load-balancer-type: "Internal"
+    cloud.google.com/load-balancer-type: "Internal"   # fallback annotation
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 10.128.0.50          # binds your reserved static IP
+  selector:
+    app: my-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

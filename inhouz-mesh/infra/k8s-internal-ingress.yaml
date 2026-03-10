@@ -1,0 +1,126 @@
+# =============================================================================
+# Internal Gateway — Cloud Run → GKE wildcard routing
+#
+# Uses a standalone Nginx deployment (NOT Nginx Ingress) so we have full
+# control over the nginx.conf. This avoids all the conflicts with
+# Nginx Ingress Controller's auto-generated proxy_pass and location blocks.
+#
+# Architecture:
+#   Cloud Run → DNS (*.k8s.api.internal → 10.10.1.51) → THIS service
+#   → Nginx extracts service name from Host header
+#   → proxy_pass to $service_name.default.svc.cluster.local
+#   → CoreDNS resolves to the correct ClusterIP pod
+#
+# CI-friendly: zero config changes needed when new GKE services are added.
+# =============================================================================
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-internal-gateway-config
+  namespace: default
+data:
+  nginx.conf: |
+    worker_processes auto;
+    events { worker_connections 1024; }
+    http {
+      resolver kube-dns.kube-system.svc.cluster.local valid=10s ipv6=off;
+      resolver_timeout 5s;
+
+      map $host $service_name {
+        ~^(?<svc>[^.]+)\.k8s\.api\.internal$  ${svc}-cluster-ip;
+        default  "";
+      }
+
+      server {
+        listen 80;
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        deny all;
+
+        location / {
+          if ($service_name = "") {
+            return 400 "Bad hostname: $host\n";
+          }
+          set $upstream http://$service_name.default.svc.cluster.local;
+          proxy_pass $upstream;
+          proxy_set_header Host $service_name.default.svc.cluster.local;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_connect_timeout 10s;
+          proxy_read_timeout 60s;
+        }
+
+        location /healthz {
+          allow all;
+          return 200 "ok\n";
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-internal-gateway
+  namespace: default
+  labels:
+    app: nginx-internal-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-internal-gateway
+  template:
+    metadata:
+      labels:
+        app: nginx-internal-gateway
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+      volumes:
+        - name: config
+          configMap:
+            name: nginx-internal-gateway-config
+---
+# This service gets the static IP 10.10.1.51 via the annotation.
+# DNS *.k8s.api.internal points here.
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-internal-gateway
+  namespace: default
+  annotations:
+    networking.gke.io/load-balancer-type: "Internal"
+    networking.gke.io/subnet-name: "service-mesh-subnet"
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 10.10.1.51
+  selector:
+    app: nginx-internal-gateway
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP

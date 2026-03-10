@@ -1,0 +1,43 @@
+# =============================================================================
+# Internal ALB Bridge — ClusterIP Service + Endpoints
+# This makes the Internal Application Load Balancer (10.10.1.50) look like
+# a native Kubernetes service so Ingress rules can point to it.
+#
+# Traffic flow:
+#   Ingress backend → internal-alb Service → Endpoints (10.10.1.50) → ALB → Cloud Run
+#
+# The ALB then uses its URL mask to route to the correct Cloud Run service
+# based on the Host header set by the upstream-vhost annotation.
+# =============================================================================
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: internal-alb
+  namespace: default
+  labels:
+    role: internal-alb-bridge
+    description: "Bridge to Internal Application Load Balancer at 10.10.1.50"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+
+---
+# Manual Endpoints — points directly to the Internal ALB IP inside the VPC
+# No DNS lookup, no external routing — traffic stays entirely within the VPC
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: internal-alb
+  namespace: default
+  labels:
+    role: internal-alb-bridge
+subsets:
+  - addresses:
+      - ip: 10.10.1.50  # Internal ALB static IP reserved in setup-mesh.sh
+    ports:
+      - port: 80

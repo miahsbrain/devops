@@ -1,0 +1,17 @@
+{
+  "name": "service-a",
+  "version": "1.0.0",
+  "description": "API Gateway — external entry point, routes to Service B and C",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "express": "^4.18.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}

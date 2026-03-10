@@ -1,0 +1,78 @@
+# =============================================================================
+# Service 2: Orders API — Kubernetes Manifests
+# Deployment + ClusterIP Service
+# Accessible internally at: http://service-2-orders-api.k8s.api.internal
+# Accessible publicly at: http://NGINX_PUBLIC_IP.nip.io/api/orders
+# =============================================================================
+
+---
+# Deployment: runs the orders API container in GKE
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-2-orders-api-deployment
+  labels:
+    app: service-2-orders-api
+    tier: backend
+    location: gke
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-2-orders-api
+  template:
+    metadata:
+      labels:
+        app: service-2-orders-api
+        tier: backend
+        location: gke
+    spec:
+      containers:
+        - name: service-2-orders-api
+          image: us-central1-docker.pkg.dev/secure-devops-setup/prod-repo/service-2-orders-api:latest
+          ports:
+            - containerPort: 3001
+          env:
+            # Internal ALB DNS — service-3 is Cloud Run, reached via *.api.internal → ALB IP
+            - name: INVENTORY_CLOUDRUN_URL
+              value: "http://service-3-inventory-cloudrun.api.internal"
+            - name: PORT
+              value: "3001"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+
+---
+# ClusterIP Service: exposes the orders API pod inside the cluster
+# Also used as the backend for the internal Nginx Ingress
+# so Cloud Run (Service 3) can call back to this service
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-2-orders-api-cluster-ip
+  labels:
+    app: service-2-orders-api
+spec:
+  type: ClusterIP
+  selector:
+    app: service-2-orders-api
+  ports:
+    - port: 80
+      targetPort: 3001
+      protocol: TCP

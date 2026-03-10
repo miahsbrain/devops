@@ -1,0 +1,79 @@
+# =============================================================================
+# Service 1: Frontend — Kubernetes Manifests
+# Deployment + ClusterIP Service + Public-facing Ingress
+# Accessible at: http://NGINX_PUBLIC_IP.nip.io/
+# =============================================================================
+
+---
+# Deployment: runs the frontend container in GKE
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-1-frontend-deployment
+  labels:
+    app: service-1-frontend
+    tier: frontend
+    location: gke
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-1-frontend
+  template:
+    metadata:
+      labels:
+        app: service-1-frontend
+        tier: frontend
+        location: gke
+    spec:
+      containers:
+        - name: service-1-frontend
+          image: us-central1-docker.pkg.dev/secure-devops-setup/prod-repo/service-1-frontend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            # Internal DNS URLs — resolved via Cloud DNS private zone inside VPC
+            # service-2 and service-4 are GKE services, reached via *.k8s.api.internal → Nginx IP
+            - name: ORDERS_API_URL
+              value: "http://service-2-orders-api.k8s.api.internal"
+            - name: PAYMENTS_API_URL
+              value: "http://service-4-payments-api.k8s.api.internal"
+            - name: PORT
+              value: "3000"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+
+---
+# ClusterIP Service: exposes the frontend pod inside the cluster
+# This is what the Ingress backend points to
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-1-frontend-cluster-ip
+  labels:
+    app: service-1-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: service-1-frontend
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP

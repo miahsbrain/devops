@@ -1,0 +1,80 @@
+# k8s/service-a/deployment.yaml
+#
+# IMAGE_PLACEHOLDER is replaced at deploy time by deploy.sh
+# with the actual image tag that was just built and pushed.
+# You never need to edit this file manually.
+# ─────────────────────────────────────────────────────────────
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-a
+  labels:
+    app: service-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-a
+  template:
+    metadata:
+      labels:
+        app: service-a
+    spec:
+      containers:
+        - name: service-a
+          image: IMAGE_PLACEHOLDER
+          ports:
+            - containerPort: 8080
+          env:
+            # ClusterIP DNS name for Service B — Kubernetes creates this automatically
+            # when the Service B Service object exists in the cluster
+            - name: SERVICE_B_URL
+              value: "http://service-b.default.svc.cluster.local:8080"
+
+            # Cloud Run URL for Service C.
+            # Set to "http://placeholder" until Service C is deployed.
+            # After running Service C's deploy.sh, update this value and
+            # redeploy Service A to pick it up.
+            - name: SERVICE_C_URL
+              value: "http://placeholder"
+
+          # Readiness probe: Kubernetes waits for /health to return 200
+          # before sending traffic to a new pod
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          # Liveness probe: Kubernetes restarts the pod if /health stops responding
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "100m"
+              memory: "256Mi"
+
+---
+# ClusterIP Service — gives Service A a stable DNS name inside the cluster
+# Other services call it at: http://service-a.default.svc.cluster.local:8080
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-a
+spec:
+  selector:
+    app: service-a
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP

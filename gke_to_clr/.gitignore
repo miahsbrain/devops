@@ -1,0 +1,12 @@
+# Environment config — never commit this, it contains your project secrets
+.env
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Docker
+.dockerignore
+
+# OS
+.DS_Store

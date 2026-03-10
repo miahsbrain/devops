@@ -1,0 +1,125 @@
+# k8s/ingress/ingress-nginx.yaml
+#
+# nginx-based ingress setup.
+#
+# Prerequisites:
+#   nginx ingress controller installed via Helm (see SETUP.md Step 3.1)
+#
+# How it works:
+#   - nginx IngressClass is created automatically by Helm
+#   - The nginx controller is exposed via an external LoadBalancer Service
+#     (created by Helm) — this is your public entry point
+#   - For internal VPC access from Cloud Run, a second internal LoadBalancer
+#     Service is created below pointing at the same nginx controller pods
+#   - Both Ingress objects use ingressClassName: nginx
+#
+# Traffic flow:
+#   Internet               → nginx external LB → nginx controller → service-a / service-b
+#   Cloud Run (VPC egress) → nginx internal LB → nginx controller → service-a / service-b
+#
+# Adding a new service:
+#   Add one path to both ingress rules below — no new LBs, no new IPs
+# ─────────────────────────────────────────────────────────────
+
+# ── Internal LoadBalancer for nginx ───────────────────────────
+# Creates a second LoadBalancer Service pointing at the same nginx
+# controller pods, but with a VPC-only internal IP.
+#
+# cloud.google.com/load-balancer-type: Internal tells GKE to provision
+# a private load balancer with no public IP.
+#
+# Cloud Run reaches this IP via VPC egress and hits nginx, which routes
+# to service-a or service-b based on the path — same as external traffic.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx-internal
+  namespace: ingress-nginx
+  annotations:
+    cloud.google.com/load-balancer-type: "Internal"
+spec:
+  type: LoadBalancer
+  loadBalancerIP: "" # ← paste your INTERNAL_LB_IP here (from Step 1.7)
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/component: controller
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+    - name: https
+      port: 443
+      targetPort: https
+
+---
+# ── External Ingress ──────────────────────────────────────────
+# Handles public internet traffic via the nginx external LoadBalancer
+# Service that Helm created automatically.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: external-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: myapp.com
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: service-a
+                port:
+                  number: 8080
+          - path: /service-b(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: service-b
+                port:
+                  number: 8080
+
+---
+# ── Internal Ingress ──────────────────────────────────────────
+# Handles traffic from Cloud Run via the internal LoadBalancer above.
+# Cloud Run calls http://internal.devops-gateway.private/...
+# which resolves (via Cloud DNS private zone) to the internal LB IP,
+# which hits nginx, which routes here.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: internal-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: internal.devops-gateway.private
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: service-a
+                port:
+                  number: 8080
+          - path: /service-b(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: service-b
+                port:
+                  number: 8080
+          # ── Adding a new service ───────────────────────────────
+          # Uncomment and fill in — no new load balancers needed
+          # - path: /service-x(/|$)(.*)
+          #   pathType: Prefix
+          #   backend:
+          #     service:
+          #       name: service-x
+          #       port:
+          #         number: 8080

@@ -1,0 +1,92 @@
+# =============================================================================
+# Public-Facing Ingress — All externally accessible routes
+# Uses the public Nginx controller (nginx-public class)
+# Accessible via: http://NGINX_PUBLIC_IP.nip.io
+#
+# Routes:
+#   /                → Service 1 (Frontend, GKE)
+#   /api/orders      → Service 2 (Orders API, GKE)
+#   /api/payments    → Service 4 (Payments API, GKE)
+#
+# Note: Service 3 and Service 5 are Cloud Run internal-only services.
+#       They are NOT exposed publicly here.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Part A: GKE services — standard path routing to ClusterIP services
+# -----------------------------------------------------------------------------
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: public-gke-services-ingress
+  namespace: default
+  annotations:
+    # Uses the public Nginx controller — this gets a public IP
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx-public
+  rules:
+    # Using nip.io with the public Nginx IP — no domain needed
+    # Replace NGINX_PUBLIC_IP with your actual public Nginx IP after deployment
+    - http:
+        paths:
+          # Service 1: Frontend — root path
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: service-1-frontend-cluster-ip
+                port:
+                  number: 80
+
+          # Service 2: Orders API
+          - path: /api/orders
+            pathType: Prefix
+            backend:
+              service:
+                name: service-2-orders-api-cluster-ip
+                port:
+                  number: 80
+
+          # Service 4: Payments API
+          - path: /api/payments
+            pathType: Prefix
+            backend:
+              service:
+                name: service-4-payments-api-cluster-ip
+                port:
+                  number: 80
+
+# -----------------------------------------------------------------------------
+# Part B: Cloud Run routes — paths forwarded to Internal ALB
+# Each path sets the correct Host header so the ALB URL mask
+# can identify which Cloud Run service to route to.
+# Service 3 and Service 5 are NOT public — this section is intentionally empty.
+# If you ever want to expose a Cloud Run service publicly, add it here
+# with the upstream-vhost annotation pointing to its internal DNS name.
+# Example (commented out for reference):
+#
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: public-cloudrun-routes-ingress
+#   namespace: default
+#   annotations:
+#     nginx.ingress.kubernetes.io/upstream-vhost: "service-3-inventory-cloudrun.api.internal"
+# spec:
+#   ingressClassName: nginx-public
+#   rules:
+#     - http:
+#         paths:
+#           - path: /api/inventory
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: internal-alb
+#                 port:
+#                   number: 80
+# -----------------------------------------------------------------------------

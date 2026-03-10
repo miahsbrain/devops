@@ -1,0 +1,67 @@
+# k8s/service-b/deployment.yaml
+#
+# IMAGE_PLACEHOLDER is replaced at deploy time by deploy.sh
+# ─────────────────────────────────────────────────────────────
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-b
+  labels:
+    app: service-b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-b
+  template:
+    metadata:
+      labels:
+        app: service-b
+    spec:
+      containers:
+        - name: service-b
+          image: IMAGE_PLACEHOLDER
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SERVICE_A_URL
+              value: "http://service-a.default.svc.cluster.local:8080"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "100m"
+              memory: "256Mi"
+
+---
+# ClusterIP Service for Service B
+# Reachable inside cluster at: http://service-b.default.svc.cluster.local:8080
+# Reachable from Cloud Run via internal ingress at: http://internal.myapp.com/service-b
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-b
+spec:
+  selector:
+    app: service-b
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP

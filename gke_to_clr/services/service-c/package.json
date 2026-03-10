@@ -1,0 +1,17 @@
+{
+  "name": "service-c",
+  "version": "1.0.0",
+  "description": "Heavy task processor — Cloud Run, scales to zero when idle",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "express": "^4.18.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}

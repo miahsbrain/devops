@@ -1,0 +1,13 @@
+{
+  "name": "service-3-inventory-cloudrun",
+  "version": "1.0.0",
+  "description": "Inventory Service — Cloud Run — communicates back to Orders API in GKE",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "express": "^4.18.0"
+  }
+}
